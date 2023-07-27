@@ -73,17 +73,6 @@ public class codegen {
         return builder;
     }
     
-    public static Connection getConnection() {
-        Connection conn = null;
-        try {
-            Class.forName("oracle.jdbc.OracleDriver");
-            conn = DriverManager.getConnection("jdbc:oracle:thin:@//61.216.84.217:1534/ORCL","demo","123456");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return conn;
-    }
-    
     public static StringBuilder voData(StringBuilder sb,ResultSet rs,String tableName) {
         String line = "";
         try {
