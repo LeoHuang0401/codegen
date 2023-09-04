@@ -11,6 +11,8 @@ public class codegen {
     private static String ENTITY = "Entity";
     
     private static String PATH_JAVABEAN = "com.codegen.example.entity";
+    
+    private static String PATH_REPOSITORY_JAVABEAN = "com.codegen.example.repository";
     /**
      * entity產檔路徑
      */
@@ -25,7 +27,7 @@ public class codegen {
     private static String VARCHAR2 = "VARCHAR2";
     
     private static String DATE = "DATE";
-    
+     
     private static String NUMBER = "NUMBER";
     
     public static void main(String[]args) {
@@ -94,9 +96,9 @@ public class codegen {
             pstmt.setString(1, tableName);
             pstmt.setString(2, tableName + "_PK");
             rs = pstmt.executeQuery();
-            repositorySb.append("package com.codegen.example.repository;\n\n");
+            repositorySb.append("package " + PATH_REPOSITORY_JAVABEAN + ";\n\n");
             repositorySb.append("import org.springframework.data.jpa.repository.JpaRepository;\n");
-            repositorySb.append("import com.codegen.example.entity." + CodegenUtil.camel(tableName) + "Entity" + ";\n\n");
+            repositorySb.append("import " + PATH_JAVABEAN + "." + CodegenUtil.camel(tableName) + "Entity" + ";\n\n");
             while(rs.next()) {
                 if(VARCHAR2.equals(rs.getString(DATA_TYPE))) {
                     line = "String";
