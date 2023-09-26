@@ -60,13 +60,10 @@ public final class CodegenUtil {
         return conn;
     }
     
-    public static void close(Connection conn , PreparedStatement pstmt, ResultSet rs, PreparedStatement pstmtPk, ResultSet rsPk) {
+    public static void close(Connection conn , PreparedStatement pstmt, ResultSet rs, ResultSet rsPk) {
         try {
             if (rsPk != null) {
                 rsPk.close();
-            }
-            if (pstmtPk != null) {
-                pstmtPk.close();
             }
             if (rs != null) {
                 rs.close();
@@ -89,7 +86,7 @@ public final class CodegenUtil {
      */
     public static StringBuilder camel(String name) {
         StringBuilder builder = new StringBuilder();
-        String[] words = name.split("[\\W_]+");
+        String[] words = name.split(SPLIT);
         for (int i = 0; i < words.length; i++) {
             String word = words[i];
             if (i == 0) {
@@ -188,6 +185,30 @@ public final class CodegenUtil {
             e.printStackTrace();
         }
         return sb;
+    }
+    
+    /**
+     * 執行 executeQuery
+     * @param conn 連線
+     * @param sql 需執行之sql
+     * @param conditions 參數
+     * @param rs ResultSet
+     * @return
+     */
+    public static ResultSet executePstmt(Connection conn ,String sql,List<String> conditions, ResultSet rs) {
+        PreparedStatement pstmt = null;
+        try {
+            pstmt = conn.prepareStatement(sql,ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
+            if (conditions != null && !conditions.isEmpty()) {
+                for (int i = 0; i < conditions.size(); i++) {
+                    pstmt.setString(i+1, conditions.get(i));
+                }
+            }
+            rs = pstmt.executeQuery();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return rs;
     }
     
     /**

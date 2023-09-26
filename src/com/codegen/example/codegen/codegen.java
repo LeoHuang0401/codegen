@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.text.GapContent;
+
 import com.codegen.example.utils.CodegenUtil;
 
 public class codegen {
@@ -50,33 +52,34 @@ public class codegen {
      */
     public static void entityCodegen(String tableName) {
         Connection conn = CodegenUtil.getConnection();
-        PreparedStatement pstmt = null;
-        PreparedStatement pstmtPk = null;
         ResultSet rs = null;
         ResultSet rsPk = null;
+        //放置PreparedStatement所需之參數
+        List<String> conditions = new ArrayList<>();
+        String sql = "";
         try {
             //取得檔案路徑
             String destEntity = CodegenUtil.dest(DEST_PATH_JAVABEAN_ENTITY);
+            String pk = tableName + "_PK";
             // 查詢除pkey外欄位、型別、註解
-            pstmt = conn.prepareStatement("SELECT b.DATA_TYPE , a.COMMENTS ,b.COLUMN_NAME "
-                    + "FROM user_col_comments a "
-                    + "LEFT JOIN all_tab_columns b ON a.TABLE_NAME = b.TABLE_NAME AND a.COLUMN_NAME = b.COLUMN_NAME "
-                    + "LEFT JOIN (SELECT * FROM user_cons_columns WHERE CONSTRAINT_NAME = ?) c ON a.TABLE_NAME = c.TABLE_NAME AND a.COLUMN_NAME = c.COLUMN_NAME "
-                    + "WHERE a.Table_Name = ? AND c.CONSTRAINT_NAME IS NULL "
-                    + "ORDER BY b.COLUMN_NAME"
-                    ,ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-            pstmt.setString(1, tableName + "_PK");
-            pstmt.setString(2, tableName);
-            rs = pstmt.executeQuery();
+            sql = "SELECT b.DATA_TYPE , a.COMMENTS ,b.COLUMN_NAME "
+                + "FROM user_col_comments a "
+                + "LEFT JOIN all_tab_columns b ON a.TABLE_NAME = b.TABLE_NAME AND a.COLUMN_NAME = b.COLUMN_NAME "
+                + "LEFT JOIN (SELECT * FROM user_cons_columns WHERE CONSTRAINT_NAME = ?) c ON a.TABLE_NAME = c.TABLE_NAME AND a.COLUMN_NAME = c.COLUMN_NAME "
+                + "WHERE a.Table_Name = ? AND c.CONSTRAINT_NAME IS NULL ";
+            conditions.add(pk);
+            conditions.add(tableName);
+            rs = CodegenUtil.executePstmt(conn, sql, conditions, rs);
+            conditions.clear();
             // 查詢pkey欄位、型別、註解
-            pstmtPk = conn.prepareStatement("select b.DATA_TYPE, a.COLUMN_NAME, c.COMMENTS "
+            sql = "select b.DATA_TYPE, a.COLUMN_NAME, c.COMMENTS "
                     + "from user_cons_columns a ,all_tab_columns b , user_col_comments c "
                     + "WHERE A.Table_Name = B.Table_Name AND A.Column_Name = B.Column_Name AND c.TABLE_NAME = b.TABLE_NAME  AND c.COLUMN_NAME = a.COLUMN_NAME "
-                    + "AND A.Table_Name = ? and a.constraint_name = ?"
-                    ,ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-            pstmtPk.setString(1, tableName);
-            pstmtPk.setString(2, tableName + "_PK");
-            rsPk = pstmtPk.executeQuery();
+                    + "AND A.Table_Name = ? and a.constraint_name = ?";
+            conditions.add(tableName);
+            conditions.add(pk);
+            rsPk = CodegenUtil.executePstmt(conn, sql, conditions, rsPk);
+            // 取得欄位數以判斷是否為多pkey
             rsPk.last();
             int pkCount = rsPk.getRow();
             List<String> pkList = null;
@@ -135,8 +138,8 @@ public class codegen {
         } catch (Exception e) {
             e.printStackTrace();
         }finally {
-            if(conn != null && pstmt != null && rs != null && pstmtPk != null && rsPk != null) {
-                CodegenUtil.close(conn,pstmt,rs, pstmtPk, rsPk);
+            if(conn != null && rs != null && rsPk != null) {
+                CodegenUtil.close(conn, null,rs, rsPk);
             }
         }
     }
@@ -207,7 +210,7 @@ public class codegen {
             e.printStackTrace();
         }finally {
             if(conn != null) {
-                CodegenUtil.close(conn, null, null, null, null);
+                CodegenUtil.close(conn, null, null, null);
             }
         }
     }
