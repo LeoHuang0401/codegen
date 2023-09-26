@@ -7,6 +7,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 
@@ -59,24 +60,33 @@ public final class CodegenUtil {
         return conn;
     }
     
-    public static void close(Connection conn , PreparedStatement pstmt, ResultSet rs) {
-            try {
+    public static void close(Connection conn , PreparedStatement pstmt, ResultSet rs, PreparedStatement pstmtPk, ResultSet rsPk) {
+        try {
+            if (rsPk != null) {
+                rsPk.close();
+            }
+            if (pstmtPk != null) {
+                pstmtPk.close();
+            }
+            if (rs != null) {
                 rs.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
-            try {
+            if (pstmt != null) {
                 pstmt.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
-            try {
+            if (conn != null) {
                 conn.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
     
+    /**
+     * Class檔名大寫駝峰
+     * @param name
+     * @return
+     */
     public static StringBuilder camel(String name) {
         StringBuilder builder = new StringBuilder();
         String[] words = name.split("[\\W_]+");
@@ -92,21 +102,33 @@ public final class CodegenUtil {
         return builder;
     }
     
-    public static StringBuilder voData(StringBuilder sb,ResultSet rs) {
-        String line = "";
+    /**
+     * 屬性欄位
+     * @param sb
+     * @param rs
+     * @param pkList
+     * @param isPk
+     * @param pkName
+     * @return
+     */
+    public static StringBuilder voData(StringBuilder sb,ResultSet rs, List<String> pkList, String pkName) {
         try {
-            
             // private的 類別及屬性名稱
             while (rs.next()) {
-                if(VARCHAR2.equals(rs.getString(DATA_TYPE))) {
-                    line = "String";
-                }else if(NUMBER.equals(rs.getString(DATA_TYPE))){
-                    line = "int";
-                }else if(DATE.equals(rs.getString(DATA_TYPE))) {
-                    line = "Date";
+                String type = changeDataType(rs.getString(DATA_TYPE));
+                if (pkList != null && pkList.size() == 3) {
+                    sb.append("    /*\n     *" + pkList.get(1) + "\n     */\n");
+                    sb.append("     @Id\n");
+                    sb.append("     private " + pkList.get(2) + " " + camelCol(pkList.get(0)) + ";\n\n");
+                    pkList.clear();
+                }else if (pkList != null && pkName != null && pkList.contains(pkName)) {
+                    sb.append("    /*\n     *" + pkName + "\n     */\n");
+                    sb.append("     @EmbeddedId\n");
+                    sb.append("     private " + pkName + " " + camelCol(pkName) + ";\n\n");
+                    pkList.remove(pkName);
                 }
                 sb.append("    /*\n     *" + rs.getString("COMMENTS") + "\n     */\n");
-                sb.append("     private " + line + " " + camelCol(rs.getString(COLUMN_NAME)) + ";\n\n");
+                sb.append("     private " + type + " " + camelCol(rs.getString(COLUMN_NAME)) + ";\n\n");
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -114,6 +136,65 @@ public final class CodegenUtil {
         return sb;
     }
     
+    public static String changeDataType(String dataType) {
+        String type = "";
+        if(VARCHAR2.equals(dataType)) {
+            type = "String";
+        }else if(NUMBER.equals(dataType)){
+            type = "Integer";
+        }else if(DATE.equals(dataType)) {
+            type = "Date";
+        }else if("TIMESTAMP".equals(dataType)) {
+            type = "LocalDateTime";
+        }
+        return type;
+    }
+    
+    /**
+     * get、set方法
+     * @param sb
+     * @param rs
+     * @return
+     */
+    public static StringBuilder voDataMt(StringBuilder sb,ResultSet rs, String pkName) {
+        String line = "";
+        try {
+            while(rs.next()) {
+                if("VARCHAR2".equals(rs.getString(DATA_TYPE))) {
+                    line = "String";
+                }else if("NUMBER".equals(rs.getString(DATA_TYPE))){
+                    line = "int";
+                }else if(DATE.equals(rs.getString(DATA_TYPE))) {
+                    line = "Date";
+                }
+                if (pkName != null && !pkName.isEmpty()) {
+                    sb.append("     public " + pkName + " " + "get" + camelMt(pkName) + "() " + "{\n");
+                    sb.append("         return " + camelCol(pkName) + ";\n");
+                    sb.append("     }\n\n");
+                    sb.append("     public void "+ "set" + camelMt(pkName) + "(" + pkName + " " + camelCol(pkName)  + ") " + "{\n");
+                    sb.append("         this." + camelCol(pkName) + " = " + camelCol(pkName) + ";\n");
+                    sb.append("     }\n");
+                    pkName = null;
+                }
+                    sb.append("     public " + line + " " + "get" + camelMt(rs.getString(COLUMN_NAME)) + "() " + "{\n");
+                    sb.append("         return " + camelCol(rs.getString(COLUMN_NAME)) + ";\n");
+                    sb.append("     }\n\n");
+                    sb.append("     public void "+ "set" + camelMt(rs.getString(COLUMN_NAME)) + "(" + line + " " + camelCol(rs.getString(COLUMN_NAME))  + ") " + "{\n");
+                    sb.append("         this." + camelCol(rs.getString(COLUMN_NAME)) + " = " + camelCol(rs.getString(COLUMN_NAME)) + ";\n");
+                    sb.append("     }\n");
+            }
+            sb.append("\n}");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return sb;
+    }
+    
+    /**
+     * 屬性駝峰
+     * @param name
+     * @return
+     */
     public static StringBuilder camelCol(String name) {
         StringBuilder builder = new StringBuilder();
         String[] words = name.split(SPLIT);
@@ -129,6 +210,11 @@ public final class CodegenUtil {
         return builder;
     }
     
+    /**
+     * getter、setter方法駝峰
+     * @param name
+     * @return
+     */
     public static StringBuilder camelMt(String name) {
         StringBuilder builder = new StringBuilder();
         String[] words = name.split(SPLIT);
@@ -144,28 +230,4 @@ public final class CodegenUtil {
         return builder;
     }
     
-    public static StringBuilder voDataMt(StringBuilder sb,ResultSet rs) {
-        String line = "";
-        try {
-            while(rs.next()) {
-                if("VARCHAR2".equals(rs.getString(DATA_TYPE))) {
-                    line = "String";
-                }else if("NUMBER".equals(rs.getString(DATA_TYPE))){
-                    line = "int";
-                }else if(DATE.equals(rs.getString(DATA_TYPE))) {
-                    line = "Date";
-                }
-                sb.append("     public " + line + " " + "get" + camelMt(rs.getString(COLUMN_NAME)) + "() " + "{\n");
-                sb.append("         return " + camelCol(rs.getString(COLUMN_NAME)) + ";\n");
-                sb.append("     }\n\n");
-                sb.append("     public void "+ "set" + camelMt(rs.getString(COLUMN_NAME)) + "(" + line + " " + camelCol(rs.getString(COLUMN_NAME))  + ") " + "{\n");
-                sb.append("         this." + camelCol(rs.getString(COLUMN_NAME)) + " = " + camelCol(rs.getString(COLUMN_NAME)) + ";\n");
-                sb.append("     }\n");
-            }
-            sb.append("\n}");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return sb;
-    }
 }
