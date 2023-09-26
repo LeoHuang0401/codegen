@@ -51,7 +51,7 @@ public final class CodegenUtil {
         if (conn == null) {
             try {
                 Class.forName("oracle.jdbc.OracleDriver");
-                conn = DriverManager.getConnection("jdbc:oracle:thin:@//61.216.84.217:1534/ORCL", "line", "123456");
+                conn = DriverManager.getConnection("", "", "");
                 pools.set(conn);
             } catch (Exception e) {
                 e.printStackTrace();
